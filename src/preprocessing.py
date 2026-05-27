@@ -273,3 +273,43 @@ def get_dataloaders(X, y, transforms_dict, batch_size=32, random_state=42):
     )
 
     return train_loader, val_loader, test_loader
+
+
+import matplotlib.pyplot as plt
+
+def visualize_batch(dataloader, classi):
+    """
+    Visualizza un batch di immagini con le relative label.
+    Utile per verificare che le trasformazioni e l'augmentation siano corrette.
+
+    Parametri:
+        dataloader : DataLoader da cui prendere il batch
+        classi     : lista dei nomi delle classi
+    """
+
+    # Prende un singolo batch dal dataloader
+    immagini, label = next(iter(dataloader))
+
+    # Mostra le prime 8 immagini del batch in una griglia 2x4
+    fig, assi = plt.subplots(2, 4, figsize=(16, 8))
+    fig.suptitle("Verifica batch augmentato — Train", fontsize=14)
+
+    for i, ax in enumerate(assi.flat):
+
+        # Prende il tensore i-esimo shape [3, 224, 224]
+        img = immagini[i]
+
+        # [C, H, W] → [H, W, C] per Matplotlib
+        img = img.permute(1, 2, 0).numpy()
+
+        # Riporta i valori in [0, 1] per la visualizzazione
+        # (Normalize li aveva spostati fuori da questo range)
+        img = img - img.min()
+        img = img / img.max()
+
+        ax.imshow(img)
+        ax.set_title(f"{classi[label[i].item()]}\n(label={label[i].item()})")
+        ax.axis('off')
+
+    plt.tight_layout()
+    plt.show()

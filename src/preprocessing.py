@@ -72,3 +72,70 @@ def load_dataset(dataset_path, img_classes):
     return X, y
     
     
+
+from torchvision import transforms
+
+
+def get_transforms():
+    
+    """
+    Definisce le trasformazioni PyTorch per train e val/test.
+
+    - Train: augmentation + normalizzazione ImageNet
+    - Val/Test: solo resize + normalizzazione (niente augmentation)
+
+    Come da Modulo 3: l'augmentation è una tecnica di regolarizzazione
+    che previene l'overfitting aumentando artificialmente la varietà
+    del training set.
+
+    Ritorna:
+        dict con chiavi 'train' e 'val', valori Compose di trasformazioni
+    """
+    
+    mean = [0.485, 0.456, 0.406]  # media ImageNet
+    std = [0.229, 0.224, 0.225]   # std ImageNet
+    
+    transform_train = transforms.Compose([
+        
+            # Resize a 224x224 (anche se già fatto in load_dataset, è buona pratica includerlo qui)
+            transforms.Resize((224, 224)),
+
+            # Augmentation: flip orizzontale con 50% di probabilità
+            transforms.RandomHorizontalFlip(p=0.5),
+            
+            # Rotazione casuale entro ±15 gradi
+            tranforms.RandomRotation(degrees=15),          
+            
+            # Varia luminosità e contrasto
+            # Simula condizioni di luce diverse — aiuta contro il bias
+            # del laboratorio di PlantVillage (sfondo uniforme, luce fissa)
+            transforms.ColorJitter(brightness=0.2, contrast=0.2),
+            
+            #Converti in tensore
+            transforms.ToTensor(), 
+            
+            # Normalizzazione con media e std di ImageNet
+            transforms.Normalize(mean=mean, std=std)
+        
+        ])
+    
+    
+    transform_val = transforms.Compose([
+        
+        transforms.Resize((224, 224)),
+        
+        transforms.ToTensor(),
+        
+        transforms.Normalize(mean=mean, std=std)
+        
+    ])
+    
+    
+    return {
+        'train': transform_train,
+        'val': transform_val,
+        'test': transform_val  # stessa trasformazione di val per test
+    }
+    
+     
+    

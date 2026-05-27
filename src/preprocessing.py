@@ -138,4 +138,138 @@ def get_transforms():
     }
     
      
-    
+
+from torch.utils.data import Dataset, DataLoader
+from sklearn.model_selection import train_test_split
+from PIL import Image
+import torch
+
+# =============================================================
+# Classe Dataset personalizzata per PlantVillage
+# PyTorch richiede una classe Dataset con __len__ e __getitem__
+# =============================================================
+
+class PlantVillageDataset(Dataset):
+    """
+    Dataset PyTorch personalizzato per le immagini PlantVillage.
+    Applica le trasformazioni on-the-fly ad ogni immagine richiesta.
+    """
+
+    def __init__(self, X, y, transform=None):
+        """
+        Parametri:
+            X (np.ndarray): immagini shape (N, 224, 224, 3) uint8 RGB
+            y (np.ndarray): label numeriche shape (N,)
+            transform: trasformazioni torchvision da applicare
+        """
+        self.X = X
+        self.y = y
+        self.transform = transform
+
+    def __len__(self):
+        # PyTorch chiama questo metodo per sapere quante immagini ci sono
+        return len(self.X)
+
+    def __getitem__(self, idx):
+        # PyTorch chiama questo metodo per ottenere l'immagine numero idx
+
+        # Prende l'immagine NumPy uint8 RGB
+        img = self.X[idx]
+
+        # Converte in PIL Image — richiesto da torchvision transforms
+        img = Image.fromarray(img)
+
+        # Applica le trasformazioni (ToTensor + Normalize + augmentation)
+        if self.transform:
+            img = self.transform(img)
+
+        # Converte la label in tensore
+        label = torch.tensor(self.y[idx], dtype=torch.long)
+
+        return img, label
+
+
+# =============================================================
+# Funzione principale get_dataloaders
+# =============================================================
+
+def get_dataloaders(X, y, transforms_dict, batch_size=32, random_state=42):
+    """
+    Divide il dataset in train/val/test e crea i DataLoader PyTorch.
+
+    Split: 80% train, 10% val, 10% test
+    random_state fisso per riproducibilità — stessa divisione ad ogni run.
+
+    Parametri:
+        X (np.ndarray)      : immagini (N, 224, 224, 3)
+        y (np.ndarray)      : label (N,)
+        transforms_dict     : dizionario da get_transforms()
+        batch_size (int)    : dimensione batch, default 32
+        random_state (int)  : seed per riproducibilità, default 42
+
+    Ritorna:
+        train_loader, val_loader, test_loader
+    """
+
+    # ----------------------------------------------------------
+    # STEP 1 — Split 80/10/10
+    # Prima splittiamo 80/20, poi il 20% lo dividiamo a metà
+    # ----------------------------------------------------------
+
+    # Split principale: 80% train, 20% temporaneo
+    X_train, X_temp, y_train, y_temp = train_test_split(
+        X, y,
+        test_size=0.2,          # 20% va in temp
+        random_state=random_state,
+        stratify=y              # mantiene le proporzioni delle classi
+    )
+
+    # Split del temporaneo: 50% val, 50% test → 10% e 10% del totale
+    X_val, X_test, y_val, y_test = train_test_split(
+        X_temp, y_temp,
+        test_size=0.5,          # metà va in test
+        random_state=random_state,
+        stratify=y_temp         # mantiene le proporzioni delle classi
+    )
+
+    # Riepilogo dello split
+    print(f"✅ Split completato:")
+    print(f"   Train : {len(X_train)} immagini ({len(X_train)/len(X)*100:.0f}%)")
+    print(f"   Val   : {len(X_val)} immagini ({len(X_val)/len(X)*100:.0f}%)")
+    print(f"   Test  : {len(X_test)} immagini ({len(X_test)/len(X)*100:.0f}%)")
+
+    # ----------------------------------------------------------
+    # STEP 2 — Crea i Dataset PyTorch
+    # Ogni split riceve la trasformazione corretta
+    # ----------------------------------------------------------
+
+    train_dataset = PlantVillageDataset(X_train, y_train, transform=transforms_dict['train'])
+    val_dataset   = PlantVillageDataset(X_val,   y_val,   transform=transforms_dict['val'])
+    test_dataset  = PlantVillageDataset(X_test,  y_test,  transform=transforms_dict['test'])
+
+    # ----------------------------------------------------------
+    # STEP 3 — Crea i DataLoader
+    # ----------------------------------------------------------
+
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=batch_size,
+        shuffle=True,       # mescola ad ogni epoca — fondamentale per il training
+        num_workers=2       # carica i dati in parallelo per velocità
+    )
+
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size=batch_size,
+        shuffle=False,      # nessun mescolamento — stiamo solo misurando
+        num_workers=2
+    )
+
+    test_loader = DataLoader(
+        test_dataset,
+        batch_size=batch_size,
+        shuffle=False,      # nessun mescolamento — valutazione finale
+        num_workers=2
+    )
+
+    return train_loader, val_loader, test_loader

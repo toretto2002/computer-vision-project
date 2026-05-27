@@ -104,7 +104,7 @@ def get_transforms():
             transforms.RandomHorizontalFlip(p=0.5),
             
             # Rotazione casuale entro ±15 gradi
-            tranforms.RandomRotation(degrees=15),          
+            transforms.RandomRotation(degrees=15),          
             
             # Varia luminosità e contrasto
             # Simula condizioni di luce diverse — aiuta contro il bias
